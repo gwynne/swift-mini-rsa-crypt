@@ -284,21 +284,8 @@ git apply "${HERE}/scripts/patch-1-inttypes.patch"
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
 cat << EOF > "$DSTROOT/include/CMiniRSACryptBoringSSL.h"
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2019 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.md for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-#ifndef C_CRYPTO_BORINGSSL_H
-#define C_CRYPTO_BORINGSSL_H
+#ifndef C_MINI_RSA_CRYPT_BORINGSSL_H
+#define C_MINI_RSA_CRYPT_BORINGSSL_H
 
 #include "CMiniRSACryptBoringSSL_aes.h"
 #include "CMiniRSACryptBoringSSL_arm_arch.h"
@@ -346,7 +333,7 @@ cat << EOF > "$DSTROOT/include/CMiniRSACryptBoringSSL.h"
 #include "CMiniRSACryptBoringSSL_trust_token.h"
 #include "CMiniRSACryptBoringSSL_x509v3.h"
 
-#endif  // C_CRYPTO_BORINGSSL_H
+#endif  // C_MINI_RSA_CRYPT_BORINGSSL_H
 EOF
 
 # modulemap is required by the cmake build
