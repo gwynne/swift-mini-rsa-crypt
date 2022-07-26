@@ -60,28 +60,29 @@
 #include <stdio.h>
 
 #include <CMiniRSACryptBoringSSL_err.h>
-#include <CMiniRSACryptBoringSSL_mem.h>
 #include <CMiniRSACryptBoringSSL_evp.h>
+#include <CMiniRSACryptBoringSSL_mem.h>
 #include <CMiniRSACryptBoringSSL_obj.h>
 #include <CMiniRSACryptBoringSSL_rand.h>
 #include <CMiniRSACryptBoringSSL_x509.h>
 
-/* Handle 'other' PEMs: not private keys */
+// Handle 'other' PEMs: not private keys
 
 void *PEM_ASN1_read_bio(d2i_of_void *d2i, const char *name, BIO *bp, void **x,
-                        pem_password_cb *cb, void *u)
-{
-    const unsigned char *p = NULL;
-    unsigned char *data = NULL;
-    long len;
-    char *ret = NULL;
+                        pem_password_cb *cb, void *u) {
+  const unsigned char *p = NULL;
+  unsigned char *data = NULL;
+  long len;
+  char *ret = NULL;
 
-    if (!PEM_bytes_read_bio(&data, &len, NULL, name, bp, cb, u))
-        return NULL;
-    p = data;
-    ret = d2i(x, &p, len);
-    if (ret == NULL)
-        OPENSSL_PUT_ERROR(PEM, ERR_R_ASN1_LIB);
-    OPENSSL_free(data);
-    return ret;
+  if (!PEM_bytes_read_bio(&data, &len, NULL, name, bp, cb, u)) {
+    return NULL;
+  }
+  p = data;
+  ret = d2i(x, &p, len);
+  if (ret == NULL) {
+    OPENSSL_PUT_ERROR(PEM, ERR_R_ASN1_LIB);
+  }
+  OPENSSL_free(data);
+  return ret;
 }
