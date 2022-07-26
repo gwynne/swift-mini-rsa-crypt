@@ -9,37 +9,18 @@ struct PEMDocument {
     private static let lineLength = 64
 
     var type: String
-
     var derBytes: Data
+    
+    init(type: String, derBytes: Data) { (self.type, self.derBytes) = (type, derBytes) }
 
     init(pemString: String) throws {
-        // A PEM document looks like this:
-        //
-        // -----BEGIN <SOME DISCRIMINATOR>-----
-        // <base64 encoded bytes, 64 characters per line>
-        // -----END <SOME DISCRIMINATOR>-----
-        //
-        // This function attempts to parse this string as a PEM document, and returns the discriminator type
-        // and the base64 decoded bytes.
-        var lines = pemString.split { $0.isNewline }[...]
-        guard let first = lines.first, let last = lines.last else {
-            throw PEMDocumentError.invalidPEMDocument
-        }
-
-        guard let discriminator = first.pemStartDiscriminator, discriminator == last.pemEndDiscriminator else {
-            throw PEMDocumentError.invalidPEMDocument
-        }
-
-        // All but the last line must be 64 bytes. The force unwrap is safe because we require the lines to be
-        // greater than zero.
-        lines = lines.dropFirst().dropLast()
-        guard lines.count > 0,
-            lines.dropLast().allSatisfy({ $0.utf8.count == PEMDocument.lineLength }),
-            lines.last!.utf8.count <= PEMDocument.lineLength else {
-            throw PEMDocumentError.invalidPEMDocument
-        }
-
-        guard let derBytes = Data(base64Encoded: lines.joined()) else {
+        let allLines = pemString.split { $0.isNewline }[...]
+        guard let first = allLines.first, let last = allLines.last,
+              let discriminator = first.pemStartDiscriminator, discriminator == last.pemEndDiscriminator,
+              let lines = Optional.some(allLines.dropFirst().dropLast()), !lines.isEmpty,
+              lines.dropLast().allSatisfy({ $0.utf8.count == PEMDocument.lineLength }), lines.last!.utf8.count <= PEMDocument.lineLength,
+              let derBytes = Data(base64Encoded: lines.joined())
+        else {
             throw PEMDocumentError.invalidPEMDocument
         }
 
@@ -47,56 +28,34 @@ struct PEMDocument {
         self.derBytes = derBytes
     }
 
-    init(type: String, derBytes: Data) {
-        self.type = type
-        self.derBytes = derBytes
-    }
-
     var pemString: String {
-        var encoded = self.derBytes.base64EncodedString()[...]
+        var encoded = self.derBytes.base64EncodedString()[...],  pemLines = [Substring]()
         let pemLineCount = (encoded.utf8.count + PEMDocument.lineLength) / PEMDocument.lineLength
-        var pemLines = [Substring]()
         pemLines.reserveCapacity(pemLineCount + 2)
-
         pemLines.append("-----BEGIN \(self.type)-----")
-
-        while encoded.count > 0 {
+        while !encoded.isEmpty {
             let prefixIndex = encoded.index(encoded.startIndex, offsetBy: PEMDocument.lineLength, limitedBy: encoded.endIndex) ?? encoded.endIndex
             pemLines.append(encoded[..<prefixIndex])
             encoded = encoded[prefixIndex...]
         }
-
         pemLines.append("-----END \(self.type)-----")
-
         return pemLines.joined(separator: "\n")
     }
 }
 
 extension Substring {
-    fileprivate var pemStartDiscriminator: String? {
-        return self.pemDiscriminator(expectedPrefix: "-----BEGIN ", expectedSuffix: "-----")
-    }
-
-    fileprivate var pemEndDiscriminator: String? {
-        return self.pemDiscriminator(expectedPrefix: "-----END ", expectedSuffix: "-----")
-    }
+    fileprivate var pemStartDiscriminator: String? { self.pemDiscriminator(expectedPrefix: "-----BEGIN ", expectedSuffix: "-----") }
+    fileprivate var pemEndDiscriminator: String? { self.pemDiscriminator(expectedPrefix: "-----END ", expectedSuffix: "-----") }
 
     private func pemDiscriminator(expectedPrefix: String, expectedSuffix: String) -> String? {
         var utf8Bytes = self.utf8[...]
-
-        // We want to split this sequence into three parts: the prefix, the middle, and the end
-        let prefixSize = expectedPrefix.utf8.count
-        let suffixSize = expectedSuffix.utf8.count
-
+        let prefixSize = expectedPrefix.utf8.count, suffixSize = expectedSuffix.utf8.count
         let prefix = utf8Bytes.prefix(prefixSize)
         utf8Bytes = utf8Bytes.dropFirst(prefixSize)
         let suffix = utf8Bytes.suffix(suffixSize)
         utf8Bytes = utf8Bytes.dropLast(suffixSize)
 
-        guard prefix.elementsEqual(expectedPrefix.utf8), suffix.elementsEqual(expectedSuffix.utf8) else {
-            return nil
-        }
-
+        guard prefix.elementsEqual(expectedPrefix.utf8), suffix.elementsEqual(expectedSuffix.utf8) else { return nil }
         return String(utf8Bytes)
     }
 }

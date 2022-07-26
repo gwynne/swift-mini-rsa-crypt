@@ -4,9 +4,6 @@ set -eu
 here="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 printf "=> Checking for unacceptable language... "
-# This greps for unacceptable terminology. The square bracket[s] are so that
-# "git grep" doesn't find the lines that greps :).
-# We exclude the vendored BoringSSL copy from this check.
 unacceptable_terms=(
     -e blacklis[t]
     -e whitelis[t]
@@ -22,7 +19,6 @@ printf "\033[0;32mokay.\033[0m\n"
 
 printf "=> Checking format\n"
 FIRST_OUT="$(git status --porcelain)"
-# only checking directory named BoringSSL, rest is shared code and we need to preserve original format
 shopt -u dotglob
 find Sources/* Tests/* -name BoringSSL -type d | while IFS= read -r d; do
   printf "   * checking $d... "

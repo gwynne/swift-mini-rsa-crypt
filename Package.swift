@@ -1,25 +1,13 @@
 // swift-tools-version:5.4
 import PackageDescription
 
-let development = false
+let development = true
 
-let swiftSettings: [SwiftSetting]
-let dependencies: [Target.Dependency]
+let condition: TargetDependencyCondition?
 if development {
-    dependencies = [
-        "CMiniRSACryptBoringSSL",
-        "CMiniRSACryptBoringSSLShims"
-    ]
+    condition = nil
 } else {
-    let platforms: [Platform] = [
-        Platform.linux,
-        Platform.android,
-        Platform.windows,
-    ]
-    dependencies = [
-        .target(name: "CMiniRSACryptBoringSSL", condition: .when(platforms: platforms)),
-        .target(name: "CMiniRSACryptBoringSSLShims", condition: .when(platforms: platforms))
-    ]
+    condition = .when(platforms: [.linux, .android, .windows])
 }
 
 let package = Package(
@@ -36,32 +24,31 @@ let package = Package(
             .library(name: "CMiniRSACryptBoringSSL", type: .static, targets: ["CMiniRSACryptBoringSSL"]),
             MANGLE_END */
     ],
-    dependencies: [],
     targets: [
         .target(
             name: "CMiniRSACryptBoringSSL",
-            exclude: [
-                "hash.txt",
-                "include/boringssl_prefix_symbols_nasm.inc",
-            ],
-            cSettings: [
-                /*
-                 * This define is required on Windows, but because we need older
-                 * versions of SPM, we cannot conditionally define this on Windows
-                 * only.  Unconditionally define it instead.
-                 */
-                .define("WIN32_LEAN_AND_MEAN"),
-            ]
+            exclude: ["hash.txt", "include/boringssl_prefix_symbols_nasm.inc"],
+            cSettings: [.define("WIN32_LEAN_AND_MEAN")]
         ),
         .target(
             name: "CMiniRSACryptBoringSSLShims",
-            dependencies: ["CMiniRSACryptBoringSSL"]
-        ),
+            dependencies: [.target(name: "CMiniRSACryptBoringSSL")]
+        )
+        ,
         .target(
             name: "MiniRSACrypt",
-            dependencies: dependencies
-            ),
-        .testTarget(name: "MiniRSACryptTests", dependencies: ["MiniRSACrypt"]),
+            dependencies: [
+                .target(name: "CMiniRSACryptBoringSSL", condition: condition),
+                .target(name: "CMiniRSACryptBoringSSLShims", condition: condition),
+            ]
+        ),
+        
+        .testTarget(
+            name: "MiniRSACryptTests",
+            dependencies: [
+                .target(name: "MiniRSACrypt"),
+            ]
+        ),
     ],
     cxxLanguageStandard: .cxx11
 )
