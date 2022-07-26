@@ -1,0 +1,24 @@
+This product contains various utility code routines from SwiftCrypto.
+
+  * LICENSE (Apache License 2.0):
+    * https://github.com/apple/swift-crypto/blob/main/LICENSE.txt
+  * HOMEPAGE:
+    * https://github.com/apple/swift-crypto
+
+---
+
+This product contains test vectors from Google's wycheproof project.
+
+  * LICENSE (Apache License 2.0):
+    * https://github.com/google/wycheproof/blob/master/LICENSE
+  * HOMEPAGE:
+    * https://github.com/google/wycheproof
+
+---
+
+This product contains a derivation of various scripts from SwiftNIO.
+
+  * LICENSE (Apache License 2.0):
+    * https://www.apache.org/licenses/LICENSE-2.0
+  * HOMEPAGE:
+    * https://github.com/apple/swift-nio
