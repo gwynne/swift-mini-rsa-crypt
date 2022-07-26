@@ -1,0 +1,4 @@
+module CMiniRSACryptBoringSSLShims {
+    header "CMiniRSACryptBoringSSLShims.h"
+    export *
+}

@@ -1,0 +1,4 @@
+module CMiniRSACryptBoringSSL {
+    header "CMiniRSACryptBoringSSL.h"
+    export *
+}
