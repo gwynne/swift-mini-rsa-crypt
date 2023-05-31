@@ -1,4 +1,3 @@
-/* crypto/x509/x509_cmp.c */
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
  *
@@ -70,19 +69,6 @@
 #include "../x509v3/internal.h"
 #include "internal.h"
 
-
-int X509_issuer_and_serial_cmp(const X509 *a, const X509 *b) {
-  int i;
-  X509_CINF *ai, *bi;
-
-  ai = a->cert_info;
-  bi = b->cert_info;
-  i = ASN1_INTEGER_cmp(ai->serialNumber, bi->serialNumber);
-  if (i) {
-    return i;
-  }
-  return (X509_NAME_cmp(ai->issuer, bi->issuer));
-}
 
 int X509_issuer_name_cmp(const X509 *a, const X509 *b) {
   return (X509_NAME_cmp(a->cert_info->issuer, b->cert_info->issuer));
@@ -221,36 +207,25 @@ unsigned long X509_NAME_hash_old(X509_NAME *x) {
   return ret;
 }
 
-// Search a stack of X509 for a match
-X509 *X509_find_by_issuer_and_serial(STACK_OF(X509) *sk, X509_NAME *name,
-                                     ASN1_INTEGER *serial) {
-  size_t i;
-  X509_CINF cinf;
-  X509 x, *x509 = NULL;
-
-  if (!sk) {
+X509 *X509_find_by_issuer_and_serial(const STACK_OF(X509) *sk, X509_NAME *name,
+                                     const ASN1_INTEGER *serial) {
+  if (serial->type != V_ASN1_INTEGER && serial->type != V_ASN1_NEG_INTEGER) {
     return NULL;
   }
 
-  x.cert_info = &cinf;
-  cinf.serialNumber = serial;
-  cinf.issuer = name;
-
-  for (i = 0; i < sk_X509_num(sk); i++) {
-    x509 = sk_X509_value(sk, i);
-    if (X509_issuer_and_serial_cmp(x509, &x) == 0) {
+  for (size_t i = 0; i < sk_X509_num(sk); i++) {
+    X509 *x509 = sk_X509_value(sk, i);
+    if (ASN1_INTEGER_cmp(X509_get0_serialNumber(x509), serial) == 0 &&
+        X509_NAME_cmp(X509_get_issuer_name(x509), name) == 0) {
       return x509;
     }
   }
   return NULL;
 }
 
-X509 *X509_find_by_subject(STACK_OF(X509) *sk, X509_NAME *name) {
-  X509 *x509;
-  size_t i;
-
-  for (i = 0; i < sk_X509_num(sk); i++) {
-    x509 = sk_X509_value(sk, i);
+X509 *X509_find_by_subject(const STACK_OF(X509) *sk, X509_NAME *name) {
+  for (size_t i = 0; i < sk_X509_num(sk); i++) {
+    X509 *x509 = sk_X509_value(sk, i);
     if (X509_NAME_cmp(X509_get_subject_name(x509), name) == 0) {
       return x509;
     }
@@ -309,10 +284,11 @@ int X509_check_private_key(X509 *x, const EVP_PKEY *k) {
 // count but it has the same effect by duping the STACK and upping the ref of
 // each X509 structure.
 STACK_OF(X509) *X509_chain_up_ref(STACK_OF(X509) *chain) {
-  STACK_OF(X509) *ret;
-  size_t i;
-  ret = sk_X509_dup(chain);
-  for (i = 0; i < sk_X509_num(ret); i++) {
+  STACK_OF(X509) *ret = sk_X509_dup(chain);
+  if (ret == NULL) {
+    return NULL;
+  }
+  for (size_t i = 0; i < sk_X509_num(ret); i++) {
     X509_up_ref(sk_X509_value(ret, i));
   }
   return ret;

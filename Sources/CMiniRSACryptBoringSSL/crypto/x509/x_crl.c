@@ -65,10 +65,14 @@
 #include <CMiniRSACryptBoringSSL_x509.h>
 #include <CMiniRSACryptBoringSSL_x509v3.h>
 
+#include <assert.h>
+
+#include "../asn1/internal.h"
 #include "../internal.h"
 #include "internal.h"
 
-static int X509_REVOKED_cmp(const X509_REVOKED **a, const X509_REVOKED **b);
+static int X509_REVOKED_cmp(const X509_REVOKED *const *a,
+                            const X509_REVOKED *const *b);
 static int setup_idp(X509_CRL *crl, ISSUING_DIST_POINT *idp);
 
 ASN1_SEQUENCE(X509_REVOKED) = {
@@ -358,7 +362,8 @@ IMPLEMENT_ASN1_FUNCTIONS(X509_CRL_INFO)
 IMPLEMENT_ASN1_FUNCTIONS(X509_CRL)
 IMPLEMENT_ASN1_DUP_FUNCTION(X509_CRL)
 
-static int X509_REVOKED_cmp(const X509_REVOKED **a, const X509_REVOKED **b) {
+static int X509_REVOKED_cmp(const X509_REVOKED *const *a,
+                            const X509_REVOKED *const *b) {
   return ASN1_STRING_cmp((*a)->serialNumber, (*b)->serialNumber);
 }
 
@@ -369,10 +374,9 @@ int X509_CRL_add0_revoked(X509_CRL *crl, X509_REVOKED *rev) {
     inf->revoked = sk_X509_REVOKED_new(X509_REVOKED_cmp);
   }
   if (!inf->revoked || !sk_X509_REVOKED_push(inf->revoked, rev)) {
-    OPENSSL_PUT_ERROR(X509, ERR_R_MALLOC_FAILURE);
     return 0;
   }
-  inf->enc.modified = 1;
+  asn1_encoding_clear(&inf->enc);
   return 1;
 }
 
@@ -430,6 +434,9 @@ static struct CRYPTO_STATIC_MUTEX g_crl_sort_lock = CRYPTO_STATIC_MUTEX_INIT;
 
 static int crl_lookup(X509_CRL *crl, X509_REVOKED **ret, ASN1_INTEGER *serial,
                       X509_NAME *issuer) {
+  // Use an assert, rather than a runtime error, because returning nothing for a
+  // CRL is arguably failing open, rather than closed.
+  assert(serial->type == V_ASN1_INTEGER || serial->type == V_ASN1_NEG_INTEGER);
   X509_REVOKED rtmp, *rev;
   size_t idx;
   rtmp.serialNumber = serial;
