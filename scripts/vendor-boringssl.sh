@@ -1,4 +1,26 @@
 #!/bin/bash
+##===----------------------------------------------------------------------===##
+##
+## This source file is part of the SwiftMiniRSACrypt open source project
+##
+## It is taken from the SwiftCrypto project, with minor modifications
+##
+## See below for licensing information
+##
+##===----------------------------------------------------------------------===##
+##===----------------------------------------------------------------------===##
+##
+## This source file is part of the SwiftCrypto open source project
+##
+## Copyright (c) 2019-2021 Apple Inc. and the SwiftCrypto project authors
+## Licensed under Apache License v2.0
+##
+## See LICENSE.txt for license information
+## See CONTRIBUTORS.md for the list of SwiftCrypto project authors
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+##===----------------------------------------------------------------------===##
 # This was substantially adapted from grpc-swift's vendor-boringssl.sh script.
 # The license for the original work is reproduced below. See NOTICES.txt for
 # more.
@@ -75,6 +97,7 @@ function mangle_symbols {
         swift build --triple "arm64-apple-macosx" --product CMiniRSACryptBoringSSL --enable-test-discovery
         (
             cd "${SRCROOT}"
+            go mod tidy -modcacherw
             go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-intel.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCMiniRSACryptBoringSSL.a"
             go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-as.txt" "${HERE}/.build/arm64-apple-macosx/debug/libCMiniRSACryptBoringSSL.a"
         )
@@ -221,14 +244,12 @@ done
 echo "GENERATING err_data.c"
 (
     cd "$SRCROOT/crypto/err"
+    go mod tidy -modcacherw
     go run err_data_generate.go > "${HERE}/${DSTROOT}/crypto/err/err_data.c"
 )
 
 echo "DELETING crypto/fipsmodule/bcm.c"
 rm -f $DSTROOT/crypto/fipsmodule/bcm.c
-
-echo "FIXING missing include"
-perl -pi -e '$_ .= qq(\n#include <openssl/cpu.h>\n) if /#include <openssl\/err.h>/' "$DSTROOT/crypto/fipsmodule/ec/p256-x86_64.c"
 
 echo "REMOVING libssl"
 (
@@ -280,6 +301,7 @@ echo "PROTECTING against executable stacks"
 
 echo "PATCHING BoringSSL"
 git apply "${HERE}/scripts/patch-1-inttypes.patch"
+git apply "${HERE}/scripts/patch-2-more-inttypes.patch"
 
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
