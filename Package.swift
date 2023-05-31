@@ -1,7 +1,7 @@
-// swift-tools-version:5.4
+// swift-tools-version:5.6
 import PackageDescription
 
-let development = true
+let development = false
 
 let condition: TargetDependencyCondition?
 if development {

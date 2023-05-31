@@ -93,8 +93,8 @@ function mangle_symbols {
 
         # Begin by building for macOS. We build for two target triples, Intel
         # and Apple Silicon.
-        swift build --triple "x86_64-apple-macosx" --product CMiniRSACryptBoringSSL --enable-test-discovery
-        swift build --triple "arm64-apple-macosx" --product CMiniRSACryptBoringSSL --enable-test-discovery
+        swift build --triple "x86_64-apple-macosx" --product CMiniRSACryptBoringSSL
+        swift build --triple "arm64-apple-macosx" --product CMiniRSACryptBoringSSL
         (
             cd "${SRCROOT}"
             go mod tidy -modcacherw
@@ -115,10 +115,14 @@ function mangle_symbols {
         # If you have trouble with the script around this point, consider
         # https://github.com/CSCIX65G/SwiftCrossCompilers to obtain cross
         # compilers for the architectures we care about.
-        for cc_target in "${CROSS_COMPILE_TARGET_LOCATION}"/*"${CROSS_COMPILE_VERSION}"*.json; do
-            echo "Cross compiling for ${cc_target}"
-            swift build --product CMiniRSACryptBoringSSL --destination "${cc_target}" --enable-test-discovery
-        done;
+        docker run -t -i --rm --privileged -v$(pwd):/src -w/src --platform linux/arm64 swift:5.8-jammy \
+            swift build --product CMiniRSACryptBoringSSL
+        docker run -t -i --rm --privileged -v$(pwd):/src -w/src --platform linux/amd64 swift:5.8-jammy \
+            swift build --product CMiniRSACryptBoringSSL
+#         for cc_target in "${CROSS_COMPILE_TARGET_LOCATION}"/*"${CROSS_COMPILE_VERSION}"*.json; do
+#             echo "Cross compiling for ${cc_target}"
+#             swift build --product CMiniRSACryptBoringSSL --destination "${cc_target}"
+#         done;
 
         # Now we need to generate symbol mangles for Linux. We can do this in
         # one go for all of them.
