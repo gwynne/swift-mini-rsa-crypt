@@ -4,13 +4,13 @@ import Foundation
 
 internal enum BIOHelper {
     static func withReadOnlyMemoryBIO<R>(wrapping pointer: UnsafeRawBufferPointer, _ block: (UnsafeMutablePointer<BIO>) throws -> R) rethrows -> R {
-        let bio = CMiniRSACryptBoringSSL_BIO_new_mem_buf(pointer.baseAddress, CInt(pointer.count))!
+        let bio = CMiniRSACryptBoringSSL_BIO_new_mem_buf(pointer.baseAddress, ossl_ssize_t(pointer.count))!
         defer { CMiniRSACryptBoringSSL_BIO_free(bio) }
         return try block(bio)
     }
 
     static func withReadOnlyMemoryBIO<R>(wrapping pointer: UnsafeBufferPointer<UInt8>, _ block: (UnsafeMutablePointer<BIO>) throws -> R) rethrows -> R {
-        let bio = CMiniRSACryptBoringSSL_BIO_new_mem_buf(pointer.baseAddress, CInt(pointer.count))!
+        let bio = CMiniRSACryptBoringSSL_BIO_new_mem_buf(pointer.baseAddress, ossl_ssize_t(pointer.count))!
         defer { CMiniRSACryptBoringSSL_BIO_free(bio) }
         return try block(bio)
     }
