@@ -26,7 +26,7 @@ extension Data {
     init(copyingMemoryBIO bio: UnsafeMutablePointer<BIO>) throws {
         var innerPointer: UnsafePointer<UInt8>? = nil, innerLength = 0
         guard CMiniRSACryptBoringSSL_BIO_mem_contents(bio, &innerPointer, &innerLength) == 1 else {
-            throw MiniRSACryptError.boringSSLError
+            throw MiniRSACryptError.internalBoringSSLError()
         }
         self = Data(UnsafeBufferPointer(start: innerPointer, count: innerLength))
     }
@@ -36,7 +36,7 @@ extension String {
     init(copyingUTF8MemoryBIO bio: UnsafeMutablePointer<BIO>) throws {
         var innerPointer: UnsafePointer<UInt8>? = nil, innerLength = 0
         guard CMiniRSACryptBoringSSL_BIO_mem_contents(bio, &innerPointer, &innerLength) == 1 else {
-            throw MiniRSACryptError.boringSSLError
+            throw MiniRSACryptError.internalBoringSSLError()
         }
         self = String(decoding: UnsafeBufferPointer(start: innerPointer, count: innerLength), as: UTF8.self)
     }

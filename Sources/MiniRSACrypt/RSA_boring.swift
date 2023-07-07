@@ -7,7 +7,6 @@ import Foundation
 extension _RSA.Encryption.Padding {
     fileprivate var rawBoringSSLPadding: CInt {
         switch self.backing {
-        case .pkcs1v1_5: return RSA_PKCS1_PADDING
         case .pkcs1_oaep: return RSA_PKCS1_OAEP_PADDING
         }
     }
@@ -37,13 +36,13 @@ internal struct BoringSSLRSAPrivateKey {
 }
 
 extension BoringSSLRSAPrivateKey {
-    internal func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> _RSA.Encryption.RSADecryptedData {
+    internal func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
         try self.backing.decrypt(data, padding: padding)
     }
  }
 
 extension BoringSSLRSAPublicKey {
-    internal func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> _RSA.Encryption.RSAEncryptedData {
+    internal func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
         try self.backing.encrypt(data, padding: padding)
     }
 }
@@ -65,7 +64,7 @@ extension BoringSSLRSAPublicKey {
             self.pointer = try pemRepresentation.withUTF8 { utf8Ptr in
                 try BIOHelper.withReadOnlyMemoryBIO(wrapping: utf8Ptr) { bio in
                     guard let key = CMiniRSACryptBoringSSL_PEM_read_bio_RSA_PUBKEY(bio, nil, nil, nil) else {
-                        throw MiniRSACryptError.boringSSLError
+                        throw MiniRSACryptError.internalBoringSSLError()
                     }
                     return key
                 }
@@ -84,7 +83,7 @@ extension BoringSSLRSAPublicKey {
             self.pointer = try contiguousDerRepresentation.withUnsafeBytes { derPtr in
                 try BIOHelper.withReadOnlyMemoryBIO(wrapping: derPtr) { bio in
                     guard let key = CMiniRSACryptBoringSSL_d2i_RSA_PUBKEY_bio(bio, nil) else {
-                        throw MiniRSACryptError.boringSSLError
+                        throw MiniRSACryptError.internalBoringSSLError()
                     }
                     return key
                 }
@@ -111,23 +110,31 @@ extension BoringSSLRSAPublicKey {
             Int(CMiniRSACryptBoringSSL_RSA_size(self.pointer)) * 8
         }
 
-        fileprivate func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> _RSA.Encryption.RSAEncryptedData {
+        fileprivate func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
             let outputSize = Int(CMiniRSACryptBoringSSL_RSA_size(self.pointer))
-            let output = try Array<UInt8>(unsafeUninitializedCapacity: outputSize) { bufferPtr, length in
-                let contiguousData: ContiguousBytes = data.regions.count == 1 ? data.regions.first! : Array(data)
-                let rc: CInt = contiguousData.withUnsafeBytes { dataPtr in
-                    CMiniRSACryptBoringSSLShims_RSA_public_encrypt(
+            var output = Data(count: outputSize)
+
+            let contiguousData: ContiguousBytes = data.regions.count == 1 ? data.regions.first! : Array(data)
+            let rc: CInt = output.withUnsafeMutableBytes { bufferPtr in
+                contiguousData.withUnsafeBytes { dataPtr in
+                    let rawPadding: CInt
+                    switch padding.backing {
+                    case .pkcs1_oaep: rawPadding = RSA_PKCS1_OAEP_PADDING
+                    }
+                    let rc = CMiniRSACryptBoringSSLShims_RSA_public_encrypt(
                         CInt(dataPtr.count),
                         dataPtr.baseAddress,
                         bufferPtr.baseAddress,
                         self.pointer,
-                        padding.rawBoringSSLPadding
+                        rawPadding
                     )
+                    return rc
                 }
-                guard rc != -1 else { throw MiniRSACryptError.boringSSLError }
-                length = Int(rc)
             }
-            return _RSA.Encryption.RSAEncryptedData(rawRepresentation: Data(output))
+            if rc == -1 {
+                throw MiniRSACryptError.internalBoringSSLError()
+            }
+            return output
         }
 
         deinit {
@@ -149,7 +156,7 @@ extension BoringSSLRSAPrivateKey {
             self.pointer = try pemRepresentation.withUTF8 { utf8Ptr in
                 try BIOHelper.withReadOnlyMemoryBIO(wrapping: utf8Ptr) { bio in
                     guard let key = CMiniRSACryptBoringSSL_PEM_read_bio_RSAPrivateKey(bio, nil, nil, nil) else {
-                        throw MiniRSACryptError.boringSSLError
+                        throw MiniRSACryptError.internalBoringSSLError()
                     }
                     return key
                 }
@@ -170,7 +177,7 @@ extension BoringSSLRSAPrivateKey {
             } else if let pointer = Backing.pkcs1DERPrivateKey(contiguousDerRepresentation) {
                 self.pointer = pointer
             } else {
-                throw MiniRSACryptError.boringSSLError
+                throw MiniRSACryptError.internalBoringSSLError()
             }
         }
 
@@ -196,7 +203,7 @@ extension BoringSSLRSAPrivateKey {
             let ptr = CMiniRSACryptBoringSSL_RSA_new()!
             do {
                 guard RSA_F4.withBignumPointer({ CMiniRSACryptBoringSSL_RSA_generate_key_ex(ptr, CInt(keySize.bitCount), $0, nil) }) == 1 else {
-                    throw MiniRSACryptError.boringSSLError
+                    throw MiniRSACryptError.internalBoringSSLError()
                 }
                 self.pointer = ptr
             } catch {
@@ -229,23 +236,32 @@ extension BoringSSLRSAPrivateKey {
             .init(.init(takingOwnershipOf: CMiniRSACryptBoringSSL_RSAPublicKey_dup(self.pointer)))
         }
 
-        fileprivate func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> _RSA.Encryption.RSADecryptedData {
+        fileprivate func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
             let outputSize = Int(CMiniRSACryptBoringSSL_RSA_size(self.pointer))
-            let output = try Array<UInt8>(unsafeUninitializedCapacity: outputSize) { bufferPtr, length in
-                let contiguousData: ContiguousBytes = data.regions.count == 1 ? data.regions.first! : Array(data)
-                let rc: CInt = contiguousData.withUnsafeBytes { dataPtr in
-                    CMiniRSACryptBoringSSLShims_RSA_private_decrypt(
+            var output = Data(count: outputSize)
+
+            let contiguousData: ContiguousBytes = data.regions.count == 1 ? data.regions.first! : Array(data)
+            let rc: CInt = output.withUnsafeMutableBytes { bufferPtr in
+                contiguousData.withUnsafeBytes { dataPtr in
+                    let rawPadding: CInt
+                    switch padding.backing {
+                    case .pkcs1_oaep: rawPadding = RSA_PKCS1_OAEP_PADDING
+                    }
+                    let rc = CMiniRSACryptBoringSSLShims_RSA_private_decrypt(
                         CInt(dataPtr.count),
                         dataPtr.baseAddress,
                         bufferPtr.baseAddress,
                         self.pointer,
-                        padding.rawBoringSSLPadding
+                        rawPadding
                     )
+                    return rc
                 }
-                guard rc != -1 else { throw MiniRSACryptError.boringSSLError }
-                length = Int(rc)
             }
-            return _RSA.Encryption.RSADecryptedData(rawRepresentation: Data(output))
+            if rc == -1 {
+                throw MiniRSACryptError.internalBoringSSLError()
+            }
+            output.removeSubrange(output.index(output.startIndex, offsetBy: Int(rc)) ..< output.endIndex)
+            return output
         }
 
         deinit {

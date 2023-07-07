@@ -72,29 +72,38 @@ internal struct SecurityRSAPrivateKey {
 }
 
 extension SecurityRSAPrivateKey {
-    internal func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> _RSA.Encryption.RSADecryptedData {
+    internal func decrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
+        let algorithm = try SecKeyAlgorithm(padding: padding)
+        let dataToDecrypt = Data(data)
         var error: Unmanaged<CFError>? = nil
-        let algorithm = try SecKeyAlgorithm(padding: padding), dataToDecrypt = Data(data)
         let dec = SecKeyCreateDecryptedData(self.backing, algorithm, dataToDecrypt as CFData, &error)
-        guard let decrypted = dec else { throw error!.takeRetainedValue() as Error }
-        return _RSA.Encryption.RSADecryptedData(rawRepresentation: decrypted as Data)
+        
+        guard let decrypted = dec else {
+            throw error!.takeRetainedValue() as Error
+        }
+        
+        return decrypted as Data
     }
 }
 
 extension SecurityRSAPublicKey {
-    internal func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> _RSA.Encryption.RSAEncryptedData {
+    internal func encrypt<D: DataProtocol>(_ data: D, padding: _RSA.Encryption.Padding) throws -> Data {
+        let algorithm = try SecKeyAlgorithm(padding: padding)
+        let dataToEncrypt = Data(data)
         var error: Unmanaged<CFError>? = nil
-        let algorithm = try SecKeyAlgorithm(padding: padding), dataToEncrypt = Data(data)
         let enc = SecKeyCreateEncryptedData(self.backing, algorithm, dataToEncrypt as CFData, &error)
-        guard let encrypted = enc else { throw error!.takeRetainedValue() as Error }
-        return _RSA.Encryption.RSAEncryptedData(rawRepresentation: encrypted as Data)
+        
+        guard let encrypted = enc else {
+            throw error!.takeRetainedValue() as Error
+        }
+        
+        return encrypted as Data
     }
 }
 
 extension SecKeyAlgorithm {
     fileprivate init(padding: _RSA.Encryption.Padding) throws {
         switch padding.backing {
-        case .pkcs1v1_5: self = .rsaEncryptionPKCS1
         case .pkcs1_oaep: self = .rsaEncryptionOAEPSHA1
         }
     }

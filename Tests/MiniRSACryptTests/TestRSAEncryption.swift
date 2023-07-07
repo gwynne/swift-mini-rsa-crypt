@@ -3,12 +3,6 @@ import XCTest
 import MiniRSACrypt
 
 final class TestRSAEncryption: XCTestCase {
-    func test_wycheproofPKCS1Vectors() throws {
-        try wycheproofTest(jsonName: "rsa_pkcs1_2048_test", testFunction: self.testPKCS1Group)
-        try wycheproofTest(jsonName: "rsa_pkcs1_3072_test", testFunction: self.testPKCS1Group)
-        try wycheproofTest(jsonName: "rsa_pkcs1_4096_test", testFunction: self.testPKCS1Group)
-    }
-    
     func test_wycheproofOAEPVectors() throws {
         try wycheproofTest(jsonName: "rsa_oaep_2048_sha1_mgf1sha1_test", testFunction: self.testOAEPGroup)
         try wycheproofTest(jsonName: "rsa_oaep_misc_test",               testFunction: self.testOAEPGroup)
@@ -23,22 +17,6 @@ final class TestRSAEncryption: XCTestCase {
         return (derKey, derKey.publicKey)
     }
     
-    private func testPKCS1Group(_ group: RSAEncryptionPKCS1TestGroup, file: StaticString, line: UInt) throws {
-        let (privKey, pubKey) = try self.getTestKeys(der: group.privateKeyDerBytes, pem: group.privateKeyPem, file: file, line: line)
-        for test in group.tests {
-            let valid: Bool
-            do {
-                let decryptResult = try privKey.decrypt(test.ciphertextBytes, padding: .insecurePKCS1v1_5)
-                let encryptResult = try pubKey.encrypt(test.messageBytes, padding: .insecurePKCS1v1_5)
-                let decryptResult2 = try privKey.decrypt(encryptResult.rawRepresentation, padding: .insecurePKCS1v1_5)
-                valid = (test.messageBytes == decryptResult.rawRepresentation && decryptResult2.rawRepresentation == decryptResult.rawRepresentation)
-            } catch {
-                valid = false
-            }
-            XCTAssertEqual(valid, test.expectedValidity, "test number \(test.tcId) failed, expected \(test.result) but got \(valid)", file: file, line: line)
-        }
-    }
-    
     private func testOAEPGroup(_ group: RSAEncryptionOAEPTestGroup, file: StaticString, line: UInt) throws {
         let (privKey, pubKey) = try self.getTestKeys(der: group.privateKeyDerBytes, pem: group.privateKeyPem, file: file, line: line)
         guard group.sha == "SHA-1", group.mgfSha == "SHA-1" else { return }
@@ -48,20 +26,14 @@ final class TestRSAEncryption: XCTestCase {
             do {
                 let decryptResult = try privKey.decrypt(test.ciphertextBytes, padding: .PKCS1_OAEP)
                 let encryptResult = try pubKey.encrypt(test.messageBytes, padding: .PKCS1_OAEP)
-                let decryptResult2 = try privKey.decrypt(encryptResult.rawRepresentation, padding: .PKCS1_OAEP)
-                valid = (test.messageBytes == decryptResult.rawRepresentation && decryptResult2.rawRepresentation == decryptResult.rawRepresentation)
+                let decryptResult2 = try privKey.decrypt(encryptResult, padding: .PKCS1_OAEP)
+                valid = (test.messageBytes == decryptResult && decryptResult2 == decryptResult)
             } catch {
                 valid = false
             }
             XCTAssertEqual(valid, test.expectedValidity, "test number \(test.tcId) failed, expected \(test.result) but got \(valid)", file: file, line: line)
         }
     }
-}
-
-struct RSAEncryptionPKCS1TestGroup: Codable {
-    var privateKeyPem, privateKeyPkcs8: String
-    var tests: [RSAEncryptionTest]
-    var privateKeyDerBytes: Data { try! Data(hexString: self.privateKeyPkcs8) }
 }
 
 struct RSAEncryptionOAEPTestGroup: Codable {

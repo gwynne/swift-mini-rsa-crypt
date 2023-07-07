@@ -4,12 +4,12 @@
 
 public enum MiniRSACryptError: Error {
     case incorrectParameterSize
-    case underlyingCryptoError(error: Int32)
+    case underlyingCoreCryptoError(error: Int32)
 
 #if !canImport(Security)
     @usableFromInline
-    static var boringSSLError: MiniRSACryptError {
-        .underlyingCryptoError(error: Int32(bitPattern: CMiniRSACryptBoringSSL_ERR_get_error()))
+    static func internalBoringSSLError() -> MiniRSACryptError {
+        .underlyingCoreCryptoError(error: Int32(bitPattern: CMiniRSACryptBoringSSL_ERR_get_error()))
     }
 #endif
 }
