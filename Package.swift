@@ -1,3 +1,4 @@
+#error("DO NOT USE THIS CODE")
 // swift-tools-version:5.6
 import PackageDescription
 
